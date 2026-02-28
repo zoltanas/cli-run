@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>cli.run — Internet of Tools</title>
+  <script src="https://cdn.jsdelivr.net/npm/@webcontainer/api@latest"></script>
+  <script src="https://cdn.jsdelivr.net/pyodide/v0.29.3/full/pyodide.js"></script>
+  <style>body{font-family:system-ui;background:#111;color:#0f0;padding:20px}</style>
+</head>
+<body>
+  <div id="term"></div>
+
+  <script type="module">
+    const url = new URL(location.href);
+    const tool = url.pathname.split('/')[1] || 'help';
+    const params = Object.fromEntries(url.searchParams);
+
+    // Tiny registry (fetched from public GitHub)
+    const registry = await fetch('https://raw.githubusercontent.com/cli-run/registry/main/index.json').then(r=>r.json());
+    const manifest = registry.find(t => t.name === tool) || {name:'help', runtime:'text'};
+
+    if (manifest.runtime === 'webcontainer') {
+      const wc = await WebContainer.boot();
+      await wc.mount({'package.json': {file: {contents: manifest.packageJson || '{}' }}});
+      await wc.run({command: 'npm', args: ['install', '--silent']});
+      const exit = await wc.run({command: manifest.cmd, args: manifest.args || []});
+      document.getElementById('term').innerHTML = `<pre>✓ ${tool} done (exit ${exit})</pre>`;
+      // postMessage JSON for agents
+      window.opener?.postMessage({type:'cli-result', tool, stdout: 'output here', exit}, '*');
+    } 
+    else if (manifest.runtime === 'pyodide') {
+      const py = await loadPyodide();
+      await py.loadPackage(manifest.packages || []);
+      const result = await py.runPythonAsync(manifest.code, {stdin: params.input});
+      // same JSON response
+    } 
+    else {
+      document.body.innerHTML = `<h1>cli.run/${tool}</h1><p>Tool ready — output in console</p>`;
+    }
+  </script>
+</body>
+</html>

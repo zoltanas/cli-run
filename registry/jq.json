@@ -1,0 +1,8 @@
+{
+  "name": "jq",
+  "runtime": "webcontainer",
+  "cmd": "npx",
+  "args": ["jq", "{{filter}}"],
+  "packageJson": "{\"dependencies\":{\"@wasmer/jq\":\"latest\"}}",
+  "description": "Lightweight JSON processor — private, zero install"
+}
